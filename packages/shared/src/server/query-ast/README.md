@@ -16,10 +16,8 @@ changing how it emits SQL.
 
 - `compile.ts` — the one supported entry point,
   `compileClickhouseQuery(query, projectId)`.
-- `schemaReferences.ts` — the first pass: rejects three-part column
-  references (`a.b.c`), so later passes read a qualifier as its relation.
-- `ctes.ts` — the second pass: rejects CTE and FROM/JOIN names that could
-  mean two relations, so later passes read every registry name as its table.
+- `schemaReferences.ts` — the first pass: rejects three-part column references (`a.b.c`), so later passes read a qualifier as its relation.
+- `ctes.ts` — the second pass: rejects CTE and FROM/JOIN names that could mean two relations, so later passes read every registry name as its table.
 - `tenancy.ts` — the tenancy injection pass.
 - `schema.ts` — the physical table registry: one `defineTable` declaration per
   relation drives the Kysely row types (`ClickHouseDatabase`), the runtime
@@ -28,12 +26,7 @@ changing how it emits SQL.
   soft-delete flag columns (`SOFT_DELETE_COLUMNS`) — instead of
   hand-maintained tables that drift.
 - `compiler.ts` / `transformer.ts` / `dialect.ts` / `nodes.ts` — the dialect.
-- `extensions.ts` — the `$call` helpers (`arrayJoin`, `limitBy`, `useFinal`,
-  `includeDeleted`, `softDeleteAfterLimit`) and typed ClickHouse functions and
-  aggregates (`argMaxIf`, `countIf`, `sumMap`, `multiIf`, `metadataValue`,
-  `arrayDistinct`, `countEqual`, `indexOf`, `arrayElement`, `tupleArrayField`,
-  `toNullable`, `typedNull`, `formatDateTime`, `templateAggregate`, `literal`,
-  …) that take `eb.ref(...)` expressions.
+- `extensions.ts` — the `$call` helpers (`arrayJoin`, `limitBy`, `useFinal`, `includeDeleted`, `softDeleteAfterLimit`) and typed ClickHouse functions and aggregates (`argMaxIf`, `countIf`, `sumMap`, `multiIf`, `metadataValue`, `arrayDistinct`, `countEqual`, `indexOf`, `arrayElement`, `tupleArrayField`, `toNullable`, `typedNull`, `formatDateTime`, `templateAggregate`, `literal`, …) that take `eb.ref(...)` expressions.
 - `views.ts` / `dedup.ts` / `softDelete.ts` — virtual views as CTEs, per-table
   dedup lowering, and soft-delete filtering.
 - `fixtures/catalog.ts` — test-only catalog of builder queries exercising the
@@ -247,9 +240,7 @@ db.selectFrom("events as e")
 Selecting `metadataValue(...)` reads the truncated `metadata_values`, so it
 routes that relation to `events_full`.
 
-**Read one field of an `Array(Tuple(…))` column** (`tupleArrayField` — the
-field as a subcolumn, an array with one element per tuple; the column must be a
-qualified `eb.ref("<alias>.<column>")`, anything else throws):
+**Read one field of an `Array(Tuple(…))` column** (`tupleArrayField` — the field as a subcolumn, an array with one element per tuple; the column must be a qualified `eb.ref("<alias>.<column>")`, anything else throws):
 
 ```ts
 db.selectFrom("events as e").select((eb) => [
@@ -258,11 +249,7 @@ db.selectFrom("events as e").select((eb) => [
 // select e.skills_available.skillName as names from events_core as e …
 ```
 
-Arguments ClickHouse requires to be constants are inlined, never bound: pass
-`literal(...)` for the `formatDateTime` format, and `typedNull` takes its type
-as a fixed string. Value arguments such as the `arrayElement` index are
-ordinary expressions; a JS value there goes through `literal(...)` (inlined) or
-a bound parameter like any other.
+Arguments ClickHouse requires to be constants are inlined, never bound: pass `literal(...)` for the `formatDateTime` format, and `typedNull` takes its type as a fixed string. Value arguments such as the `arrayElement` index are ordinary expressions; a JS value there goes through `literal(...)` (inlined) or a bound parameter like any other.
 
 ## Developing the dialect
 
@@ -305,14 +292,7 @@ directly: the compiler refuses any tree that did not go through the tenancy pass
 `compileClickhouseQuery(query, projectId)` is the only supported compile path,
 and it is where tenancy is enforced:
 
-1. A missing/empty `projectId` throws (`QueryCompileError`) — `projectId` is a
-   required parameter, so omitting it is also a compile-time type error.
-   `SchemaReferencePlugin` rejects three-part column references (`a.b.c`; use
-   `tupleArrayField` for a tuple field). `CteNamePlugin` then rejects the CTE
-   names the rules above forbid; it runs before every pass but the first. A
-   FROM/JOIN name that resolves to no registry table or CTE in scope, and a
-   schema-qualified name, throw `UnscopedRelationError`; naming errors throw
-   `QueryCompileError`.
+1. A missing/empty `projectId` throws (`QueryCompileError`) — `projectId` is a required parameter, so omitting it is also a compile-time type error. `SchemaReferencePlugin` rejects three-part column references (`a.b.c`; use `tupleArrayField` for a tuple field). `CteNamePlugin` then rejects the CTE names the rules above forbid; it runs before every pass but the first. A FROM/JOIN name that resolves to no registry table or CTE in scope, and a schema-qualified name, throw `UnscopedRelationError`; naming errors throw `QueryCompileError`.
 2. `SoftDeleteFilterPlugin` adds `<flag> = 0` for every FROM/JOIN relation
    whose table declares `softDelete`, except in selects marked with
    `includeDeleted()`. A select marked `softDeleteAfterLimit()` is left
@@ -397,14 +377,7 @@ is just `eb.fn("arrayJoin", [...])`.
 
 ### The one Kysely-internals coupling (upgrade hazard)
 
-`compiler.ts` wraps Kysely's **private** `visitNode` / `nodeStack` to dispatch
-`ArrayIndexNode` (for `metadata[key]`), `FinalTableNode` (for `FINAL`) and
-`TupleSubcolumnNode` (for `q.col.field`),
-because they are not Kysely's closed `OperationNode` kinds. Kysely is pinned
-to **0.28.17** for this reason. Re-verify this hack on any Kysely bump; it is
-the single place that reaches past Kysely's documented surface. Everything
-else (plugins, dialect, transformer overrides) uses public or
-documented-protected API.
+`compiler.ts` wraps Kysely's **private** `visitNode` / `nodeStack` to dispatch `ArrayIndexNode` (for `metadata[key]`), `FinalTableNode` (for `FINAL`) and `TupleSubcolumnNode` (for `q.col.field`), because they are not Kysely's closed `OperationNode` kinds. Kysely is pinned to **0.28.17** for this reason. Re-verify this hack on any Kysely bump; it is the single place that reaches past Kysely's documented surface. Everything else (plugins, dialect, transformer overrides) uses public or documented-protected API.
 
 ### Types are asserted at compile time
 
